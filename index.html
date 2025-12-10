@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>AgriManager V32 (Smooth Dark)</title>
+    <style>
+        :root {
+            /* PALETTE GLOBALE */
+            --primary: #8DAE42;       
+            --primary-dim: #6a8530;   
+            --accent: #FFD700;        
+            --danger: #CE181E;        
+            --dark-surface: rgba(20, 20, 20, 0.95); 
+            --glass: rgba(255, 255, 255, 0.05);
+            --input-bg: rgba(0, 0, 0, 0.3);
+            --border: rgba(255, 255, 255, 0.15);
+            --text-main: #ffffff;
+            --text-muted: #aaaaaa;
+            
+            /* Métier */
+            --transfer: #e67e22;
+            --contract: #3498db;
+            --proprio: #9b59b6;
+            --truffe: #a1887f;
+            --excel: #27ae60;
+            
+            /* Environnement */
+            --bg-gradient: radial-gradient(circle at center, #1e2b1b 0%, #080a08 100%);
+            --map-bg: #1a2215;
+            
+            /* Animation Silo */
+            --metal: #bdc3c7;
+            --metal-dark: #7f8c8d;
+        }
+
+        body { 
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+            margin: 0; 
+            background: var(--bg-gradient); 
+            background-attachment: fixed; 
+            color: var(--text-main);
+            display: flex; 
+            height: 100vh; 
+            overflow: hidden; 
+        }
+
+        /* --- ANIMATIONS GLOBALES --- */
+        @keyframes slideInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideInRight { from { opacity: 0; transform: translateX(50px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes popIn { 0% { transform: scale(0.9); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+
+        /* =========================================
+           PARTIE 1 : SPLASH SCREEN (CORRIGÉ)
+           ========================================= */
+        #splash-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-gradient); z-index: 9999;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            transition: opacity 0.8s ease-out;
+        }
+        .silo-container {
+            position: relative; bottom: -100px; width: 100px; height: 220px;
+            z-index: 2; opacity: 0; animation: spawnSilo 1s ease-out forwards 0.2s;
+        }
+        .silo-body {
+            width: 100%; height: 180px;
+            background: repeating-linear-gradient(90deg, var(--metal), var(--metal) 10px, var(--metal-dark) 15px, var(--metal) 20px);
+            border-left: 2px solid #333; border-right: 2px solid #333;
+            position: absolute; bottom: 0;
+            box-shadow: inset 10px 0 20px rgba(0,0,0,0.6);
+        }
+
+        .silo-grain-level {
+            width: 100%; height: 0%;
+            background: linear-gradient(to right, #d4ac0d, var(--accent), #d4ac0d);
+            position: absolute; bottom: 0; opacity: 0.9;
+            box-shadow: 0 0 15px var(--accent);
+            animation: fillSiloLevel 3s ease-in-out forwards 1s;
+        }
+        .splash-text { margin-top: -20px; font-size: 3rem; font-weight: 800; letter-spacing: -1px; text-shadow: 0 4px 10px rgba(0,0,0,0.5); opacity: 0; animation: popIn 1s ease-out forwards 0.5s; z-index: 10; }
+        .splash-text span { color: var(--primary); }
+        .loader-bar { width: 250px; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; margin-top: 20px; overflow: hidden; opacity: 0; animation: fadeUI 1s ease-out forwards 0.8s; }
+        .loader-fill { height: 100%; width: 0; background: var(--primary); animation: loading 3s ease-in-out forwards; }
+        @keyframes spawnSilo { from { opacity: 0; bottom: -200px; } to { opacity: 1; bottom: 0px; } }
+        @keyframes fillSiloLevel { 0% { height: 0%; } 100% { height: 90%; } }
+        @keyframes fadeUI { to { opacity: 1; } }
+        @keyframes loading { 0% { width: 0%; } 100% { width: 100%; } }
+
+        /* =========================================
+           PARTIE 2 : UI & CUSTOM NOTIFICATIONS
+           ========================================= */
+        
+        /* TOASTS (Notifications) */
+        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 10000; display: flex; flex-direction: column; gap: 10px; }
+        .toast {
+            background: var(--dark-surface); color: white; padding: 15px 20px; border-radius: 8px;
+            border-left: 5px solid var(--primary); min-width: 250px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            animation: slideInRight 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex; align-items: center; justify-content: space-between;
+            backdrop-filter: blur(10px);
+        }
+        .toast.error { border-left-color: var(--danger); }
+        .toast.info { border-left-color: var(--contract); }
+
+        /* CONFIRM MODAL */
+        #confirm-modal { display: none; }
+        .modal-box {
+            background: #1e1e1e; padding: 20px; border-radius: 12px;
+            width: 90%; max-width: 400px; text-align: center;
+            border: 1px solid var(--border); box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .modal-actions { display: flex; gap: 10px; justify-content: center; margin-top: 20px; }
+
+        /* NAVIGATION */
+        nav { 
+            width: 250px; background-color: rgba(0, 0, 0, 0.7); backdrop-filter: blur(15px);
+            border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 20px; overflow-y: auto; z-index: 100; flex-shrink: 0; 
+        }
+        nav h1 { font-size: 1.8rem; margin-bottom: 30px; text-align: center; border-bottom: 1px solid var(--border); padding-bottom: 15px; font-weight: 800; letter-spacing: -1px; }
+        nav h1 span { color: var(--primary); }
+        nav button { 
+            background: none; border: none; color: var(--text-muted); text-align: left; padding: 15px; font-size: 1rem; cursor: pointer; transition: all 0.2s; border-radius: 8px; margin-bottom: 5px; 
+            position: relative; overflow: hidden;
+        }
+        nav button:hover { background-color: var(--glass); color: white; transform: translateX(5px); }
+        nav button.active { background-color: var(--primary); color: #fff; font-weight: bold; box-shadow: 0 4px 15px rgba(141, 174, 66, 0.3); }
+        nav button#nav-truffe.active { background-color: var(--truffe); box-shadow: 0 4px 15px rgba(161, 136, 127, 0.3); }
+
+        /* MAIN AREA */
+        main { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; }
+        .screen { display: none; animation: slideInUp 0.4s ease-out; } .screen.active { display: block; }
+
+        /* CARDS & PANELS */
+        .top-bar, .form-group { 
+            background: var(--dark-surface); backdrop-filter: blur(10px); padding: 15px; border-radius: 12px; margin-bottom: 15px; 
+            border: 1px solid var(--border); box-shadow: 0 4px 6px rgba(0,0,0,0.2); 
+        }
+        .top-bar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap:10px; }
+
+        /* INPUTS */
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9rem; color: var(--text-muted); transition: color 0.2s;}
+        input:focus + label, select:focus + label { color: var(--primary); }
+        select, input { 
+            width: 100%; padding: 12px; margin-bottom: 10px; box-sizing: border-box; background: var(--input-bg); border: 1px solid var(--border); 
+            color: var(--text-main); border-radius: 6px; font-size: 16px; transition: all 0.3s;
+        }
+        select:focus, input:focus { outline: none; border-color: var(--primary); background: rgba(255,255,255,0.05); transform: translateY(-1px); }
+        option { background: #1a1a1a; }
+
+        /* TABLES */
+        .table-wrap { overflow-x: auto; border-radius: 8px; border: 1px solid var(--border); }
+        table { width: 100%; border-collapse: collapse; background: rgba(0,0,0,0.2); min-width: 600px; } 
+        th { background: rgba(255,255,255,0.05); color: var(--primary); padding: 12px; text-align: left; text-transform: uppercase; font-size: 0.85rem; letter-spacing: 1px; }
+        td { padding: 12px; border-bottom: 1px solid var(--border); color: var(--text-main); vertical-align: middle; }
+        tr { transition: background 0.2s; animation: slideInUp 0.3s ease-out; }
+        tr:hover { background: rgba(255,255,255,0.02); }
+
+        /* BUTTONS */
+        button.action-btn { 
+            background-color: var(--primary); color: white; padding: 12px; width: 100%; border: none; border-radius: 6px; cursor: pointer; 
+            font-weight: bold; font-size: 1rem; margin-top:5px; transition: all 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+        button.action-btn:hover { filter: brightness(1.1); transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.3); }
+        button.action-btn:active { transform: scale(0.98); }
+        button.danger-btn { background-color: var(--danger); }
+        button.transfer-btn { background-color: var(--transfer); }
+        button.proprio-btn { background-color: var(--proprio); }
+        button.contract-btn { background-color: var(--contract); }
+        button.valid-btn { background-color: var(--primary); }
+        button.excel-btn { background-color: var(--excel); }
+        button.truffe-btn { background-color: var(--truffe); }
+        button.sm-btn { width: auto; padding: 6px 12px; font-size: 0.8rem; border-radius: 4px; }
+
+        /* MAP */
+        .map-container { position: relative; width: 100%; height: 70vh; background-color: var(--map-bg); border: 4px solid #1a1a1a; border-radius: 12px; overflow: hidden; box-shadow: inset 0 0 50px rgba(0,0,0,0.8); }
+        .map-silo { 
+            position: absolute; transform: translate(-50%, -50%); display: flex; justify-content: center; align-items: center; cursor: pointer; transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+        }
+        .map-silo:hover { z-index: 100; transform: translate(-50%, -50%) scale(1.15) !important; border-color: var(--primary) !important; }
+        
+        .silo-visual-map { background: #e0e0e0; border-radius: 3px; overflow: hidden; width: 100%; height: 100%; display:flex; flex-direction:column; position: relative;}
+        .silo-visual-bar { width: 100%; transition: height 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
+        .silo-map-label { position: absolute; width:100%; height:100%; top:0; left:0; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 5; text-shadow: 0 0 4px white, 0 0 2px white; color: black; font-size: 0.7rem; text-align: center; pointer-events: none; font-weight: 800;}
+
+        /* GRID CARDS */
+        .silos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px; width: 100%; }
+        .silo-card { 
+            background: var(--dark-surface); padding: 15px; border-radius: 12px; text-align: center; border:1px solid var(--border); 
+            transition: all 0.3s; animation: popIn 0.4s ease-out; cursor: pointer;
+        }
+        .silo-card:hover { transform: translateY(-5px); border-color: var(--primary); box-shadow: 0 10px 20px rgba(0,0,0,0.3); }
+        .silo-visual { height: 80px; width: 40px; background: rgba(255,255,255,0.1); margin: 10px auto; position: relative; border: 2px solid var(--border); border-radius: 4px; overflow: hidden; }
+        .silo-fill { position: absolute; bottom: 0; left: 0; width: 100%; transition: height 1s ease; opacity: 0.9; }
+
+        /* LISTS & BADGES */
+        .data-list li, .truck-part-list li { background: var(--input-bg); color: white; border-bottom: 1px solid var(--border); padding: 10px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; border-radius: 6px; animation: slideInRight 0.3s ease-out; }
+        .stock-card { background: var(--input-bg); border-left: 4px solid var(--primary); padding: 15px; margin-bottom: 10px; border-radius: 6px; cursor: pointer; transition: transform 0.2s; }
+        .stock-card:hover { transform: translateX(5px); background: rgba(255,255,255,0.1); }
+        .badge { padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; color: white; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        .badge.in { background-color: var(--primary); }
+        .badge.out { background-color: var(--danger); }
+
+        /* UTILS */
+        .row { display: flex; gap: 10px; } .col { flex: 1; }
+        .view-toggle { background: rgba(255,255,255,0.1); border-radius: 20px; padding: 4px; display: flex; gap: 4px; }
+        .view-toggle.compact { width: fit-content; margin: 0 auto 15px auto; }
+        .view-toggle button { padding: 6px 15px; border-radius: 16px; margin: 0; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px); display: none; justify-content: center; align-items: center; z-index: 2000; animation: fadeUI 0.2s; }
+
+        @media (max-width: 768px) { 
+            body { flex-direction: column; } 
+            nav { width: 100%; height: auto; flex-direction: row; overflow-x: auto; padding: 10px; white-space: nowrap; background: rgba(0,0,0,0.9); border-right: none; border-bottom: 1px solid var(--border); } 
+            nav h1 { display: none; } 
+            nav button { padding: 8px 15px; font-size: 0.9rem; margin-right: 5px; background: rgba(255,255,255,0.1); border-radius: 20px;} 
+            .map-container { height: 50vh; } 
+            .row { flex-direction: column; gap: 0; } .col { margin-bottom: 10px; } table { min-width: 400px; } 
+        }
+    </style>
+</head>
+<body>
+
+    <div id="toast-container"></div>
+
+    <div id="confirm-modal" class="modal-overlay">
+        <div class="modal-box">
+            <h3 style="margin-top:0; color:var(--primary);">Confirmation</h3>
+            <p id="confirm-msg" style="font-size:1.1rem;">Êtes-vous sûr ?</p>
+            <div class="modal-actions">
+                <button class="action-btn sm-btn" style="background:#555" onclick="window.closeConfirm(false)">Annuler</button>
+                <button class="action-btn sm-btn" id="confirm-yes-btn">Confirmer</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="info-modal" class="modal-overlay" onclick="document.getElementById('info-modal').style.display='none'">
+        <div class="modal-box" onclick="event.stopPropagation()">
+            <h3 id="info-title" style="margin-top:0; color:var(--accent);">Info</h3>
+            <p id="info-msg" style="white-space: pre-line;"></p>
+            <button class="action-btn sm-btn" onclick="document.getElementById('info-modal').style.display='none'">OK</button>
+        </div>
+    </div>
+
+    <div id="splash-screen">
+        <div class="splash-text">Agri<span>Manager</span></div>
+        <div class="scene">
+            <div class="silo-container">
+                <div class="silo-body">
+                    <div class="silo-grain-level"></div>
+                </div>
+            </div>
+        </div>
+        <div class="loader-bar"><div class="loader-fill"></div></div>
+    </div>
+
+    <div id="app-content" style="display:none; width:100%; height:100%; display:flex;">
+        <nav>
+            <h1>Agri<span>Manager</span></h1>
+            <button onclick="window.showScreen('dashboard')" class="active" id="nav-dashboard">🌍 Vue</button>
+            <button onclick="window.showScreen('entree')" id="nav-entree">🚜 Entrée</button>
+            <button onclick="window.showScreen('sortie')" id="nav-sortie">🚛 Sortie</button>
+            <button onclick="window.showScreen('transvaser')" id="nav-transvaser">⇄ Transf.</button>
+            <button onclick="window.showScreen('registre')" id="nav-registre">📋 Registre</button>
+            <button onclick="window.showScreen('contrats')" id="nav-contrats">📜 Contrats</button>
+            <button onclick="window.showScreen('delivery')" id="nav-delivery">📦 Stocks</button>
+            <button onclick="window.showScreen('phyto')" id="nav-phyto">🧪 Phyto</button>
+            <button onclick="window.showScreen('logs')" id="nav-logs">📝 Logs</button>
+            <button onclick="window.showScreen('data')" id="nav-data">🗂️ Data</button>
+            <button onclick="window.showScreen('params')" id="nav-params">⚙️ Config</button>
+            <button onclick="window.showScreen('truffe')" id="nav-truffe" style="color:#d7ccc8; margin-top: auto; border-top: 1px solid #555;">🍄 Truffe</button>
+        </nav>
+
+        <main>
+            <div class="top-bar">
+                <div>
+                    <label style="margin:0; font-size:0.8rem; color:var(--text-muted);">Site Actif :</label>
+                    <select id="siteSelector" onchange="window.changeSite()" style="background:rgba(0,0,0,0.5); border-color:var(--border);"></select>
+                    <span id="syncStatus" style="font-size:0.8rem; color:grey; margin-left:10px;">⚪ Connexion...</span>
+                </div>
+                <div class="view-toggle" id="viewToggler">
+                    <button onclick="window.switchView('plan')" id="btnPlan" class="active">Plan</button>
+                    <button onclick="window.switchView('grid')" id="btnGrid">Liste</button>
+                </div>
+            </div>
+
+            <div id="dashboard" class="screen active">
+                <div id="viewPlan"><div class="map-container" id="mapContainer"></div></div>
+                <div id="viewGrid" style="display:none; width:100%;"><div class="silos-grid" id="silosGridDisplay"></div></div>
+            </div>
+
+            <div id="entree" class="screen">
+                <h2>Nouvelle Réception</h2>
+                <div class="form-group">
+                    <div class="row"><div class="col"><label>Client</label><select id="inClientSelect"></select></div><div class="col"><label>Céréale</label><select id="inGrainType"></select></div></div>
+                    <label>Destination</label><select id="inSiloSelect"></select>
+                    <div class="row">
+                        <div class="col"><label>Tare</label><input type="number" id="inEmpty" oninput="window.calcNet('in')"></div>
+                        <div class="col"><label>Brut</label><input type="number" id="inFull" oninput="window.calcNet('in')"></div>
+                        <div class="col"><label>Net</label><input type="number" id="inNet" oninput="window.manualNet('in')" style="background:var(--input-bg); font-weight:bold; color:var(--primary);"></div>
+                    </div>
+                    <div class="row"><div class="col"><label>PS</label><input type="number" id="inPS" step="0.1" placeholder="Ex: 78"></div><div class="col"><label>Info</label><input type="text" id="inDetails"></div></div>
+                    <button class="action-btn" onclick="window.gererEntree()">Valider Entrée</button>
+                </div>
+            </div>
+
+            <div id="registre" class="screen">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                    <h2>Registre des Bennes</h2>
+                    <button class="action-btn excel-btn sm-btn" onclick="window.exportExcel()">📊 Exporter Excel</button>
+                </div>
+                <div class="table-wrap">
+                    <table class="edit-table">
+                        <thead><tr><th>Date</th><th>Sens</th><th>Tiers</th><th>Détail</th><th>Poids (kg)</th></tr></thead>
+                        <tbody id="registreBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="truffe" class="screen">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h2 style="color:var(--truffe)">🍄 Gestion Truffes</h2>
+                    <div style="background:var(--dark-surface); padding:10px; border-radius:8px; border:1px solid var(--truffe); box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
+                         Total Attente: <strong id="trTotalWeight" style="color:var(--primary); font-size:1.2rem;">0</strong> g
+                    </div>
+                </div>
+
+                <div class="form-group" style="border-top: 4px solid var(--truffe);">
+                    <h3>Nouvelle Commande</h3>
+                    <div class="row">
+                        <div class="col"><label>Date</label><input type="date" id="trDate"></div>
+                        <div class="col"><label>Pour le</label><input type="date" id="trDead"></div>
+                    </div>
+                    <div class="row">
+                        <div class="col"><label>Client</label><input type="text" id="trName" placeholder="Nom"></div>
+                        <div class="col"><label>Contact</label><input type="text" id="trContact" placeholder="Tel / Email"></div>
+                    </div>
+                    <div class="row">
+                        <div class="col"><label>Poids (g)</label><input type="number" id="trWeight" placeholder="Grammes"></div>
+                        <div class="col"><label>Prix (€/kg)</label><input type="number" id="trPrice" placeholder="Prix"></div>
+                        <div class="col" style="display:flex; align-items:flex-end;"><button class="action-btn truffe-btn" onclick="window.addTruffe()">Ajouter</button></div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <h3>Commandes en attente</h3>
+                        <button class="action-btn sm-btn" onclick="window.toggleTruffeEdit()" id="btnTrEdit">✏️ Mode Édition</button>
+                    </div>
+                    <div class="table-wrap">
+                        <table class="edit-table">
+                            <thead><tr><th>Pour le</th><th>Client</th><th>Contact</th><th>Poids (g)</th><th>Prix (€)</th><th>Actions</th></tr></thead>
+                            <tbody id="truffeBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="form-group" style="opacity:0.8; margin-top:20px;">
+                    <h3>Historique / Validées</h3>
+                    <div class="table-wrap">
+                        <table class="edit-table">
+                            <thead><tr><th>Validé le</th><th>Client</th><th>Poids</th><th>Prix</th></tr></thead>
+                            <tbody id="truffeHistoryBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="contrats" class="screen">
+                <h2>Gestion des Contrats</h2>
+                <div class="form-group" style="border-top: 4px solid var(--contract);">
+                    <h3>Nouveau Contrat</h3>
+                    <div class="row"><div class="col"><label>N°</label><input type="text" id="ctrNum"></div><div class="col"><label>Vendeur</label><select id="ctrSeller"></select></div></div>
+                    <div class="row"><div class="col"><label>Céréale</label><select id="ctrGrain"></select></div><div class="col"><label>Poids (T)</label><input type="number" id="ctrWeightT"></div><div class="col"><label>Prix</label><input type="number" id="ctrPrice"></div></div>
+                    <div class="row"><div class="col"><label>Date Enlèvement</label><input type="date" id="ctrDate"></div></div>
+                    <button class="action-btn contract-btn" onclick="window.addContract()">Enregistrer</button>
+                </div>
+                <div class="form-group"><h3>📜 En cours</h3><div class="table-wrap"><table class="edit-table"><thead><tr><th>N°</th><th>Vendeur</th><th>Céréale</th><th>Avancement</th><th>Actions</th></tr></thead><tbody id="contractsTableBody"></tbody></table></div></div>
+                <div class="form-group" style="margin-top:30px; opacity:0.8;"><h3>🗄️ Terminés</h3><div class="table-wrap"><table class="edit-table"><thead><tr><th>N°</th><th>Vendeur</th><th>Céréale</th><th>Final</th><th>Suppr.</th></tr></thead><tbody id="contractsFinishedBody"></tbody></table></div></div>
+            </div>
+
+            <div id="sortie" class="screen">
+                <h2>Expédition</h2>
+                <div id="sortieStep1" class="wizard-step active">
+                    <div class="form-group">
+                        <h3>Étape 1 : Contrat & Pesée</h3>
+                        <label>Contrat</label><select id="outContractSelect" onchange="window.loadContractInfo()"></select>
+                        <div id="contractInfoDisplay" style="margin:10px 0; padding:10px; background:rgba(52, 152, 219, 0.2); border-left:4px solid var(--contract); display:none;"></div>
+                        <div class="row">
+                            <div class="col"><label>Tare</label><input type="number" id="outEmpty" oninput="window.calcNet('out')"></div>
+                            <div class="col"><label>Brut</label><input type="number" id="outFull" oninput="window.calcNet('out')"></div>
+                            <div class="col"><label>Net</label><input type="number" id="outNet" oninput="window.manualNet('out')" style="background:var(--input-bg); font-weight:bold;"></div>
+                        </div>
+                        <button class="action-btn" onclick="window.goToSortieStep2()">Suivant ➡️ Justifier</button>
+                    </div>
+                </div>
+                <div id="sortieStep2" class="wizard-step" style="display:none;">
+                    <div class="form-group">
+                        <div style="display:flex; justify-content:space-between;"><h3>Étape 2 : Lots</h3><div>Poids Net: <span id="lblTruckTotal">0</span> kg</div></div>
+                        <div style="background:rgba(255,255,255,0.05); padding:10px; margin-bottom:15px; border-radius:5px;">
+                            <div class="row"><div class="col"><label>Source</label><select id="outSiloSelect" onchange="window.updateOwnerSelect()"></select></div><div class="col"><label>Proprio</label><select id="outOwnerSelect"></select></div><div class="col"><label>Poids</label><input type="number" id="outPartWeight"></div></div>
+                            <button class="action-btn sm-btn" onclick="window.addSourceToTruck()">+ Ajouter lot</button>
+                        </div>
+                        <ul class="truck-part-list" id="truckSourcesList"></ul>
+                        <div style="text-align:right; font-weight:bold; color:var(--primary);">Total Affecté : <span id="lblAssigned">0</span> kg</div>
+                        <div class="row" style="margin-top:20px;"><button class="action-btn danger-btn" onclick="window.finalizeTruck()">✅ Valider</button><button class="action-btn sm-btn" style="background:#555;" onclick="window.resetSortie()">Annuler</button></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="transvaser" class="screen">
+                <h2>Transfert</h2>
+                <div class="view-toggle compact">
+                    <button onclick="window.switchTrans('phys')" id="btnTransPhys" class="active">Physique</button>
+                    <button onclick="window.switchTrans('prop')" id="btnTransProp">Propriété</button>
+                </div>
+                <div id="transPhys" class="form-group" style="border: 2px solid var(--transfer);">
+                    <h3>Déplacement Physique</h3>
+                    <label>Source</label><select id="fromSiloSelect"></select>
+                    <label>Destination</label><select id="toSiloSelect"></select>
+                    <div class="row"><div class="col"><label>Poids (kg)</label><input type="number" id="mooveWeight"></div></div>
+                    <button class="action-btn transfer-btn" onclick="window.gererTransvase()">Valider Mouvement</button>
+                </div>
+                <div id="transProp" class="form-group" style="border: 2px solid var(--proprio); display:none;">
+                    <h3>Cession Propriété</h3>
+                    <label>Silo</label><select id="propSiloSelect" onchange="window.updateProprioSource()"></select>
+                    <div class="row"><div class="col"><label>Vendeur</label><select id="propSourceSelect"></select></div><div class="col"><label>Acheteur</label><select id="propDestSelect"></select></div></div>
+                    <div class="row"><div class="col"><label>Poids (kg)</label><input type="number" id="propWeight"></div></div>
+                    <button class="action-btn proprio-btn" onclick="window.gererTransfertProprio()">Valider Cession</button>
+                </div>
+            </div>
+
+            <div id="delivery" class="screen">
+                <h2>Stocks par Tiers</h2>
+                <div id="deliveryContainer"></div>
+                <button class="action-btn danger-btn" style="margin-top:50px;" onclick="window.resetAllSilos()">☢️ VIDER TOUT</button>
+            </div>
+
+            <div id="clientDetail" class="screen">
+                <div class="detail-header"><h2 id="detailTitle">Détail</h2><div><button class="action-btn sm-btn" onclick="window.showScreen('delivery')">Retour</button> <button class="action-btn sm-btn" style="background:#555;" onclick="window.toggleEditMode()" id="lockBtn">🔒</button></div></div>
+                <div class="form-group"><h3>Stocks Cellules</h3><div class="table-wrap"><table class="edit-table"><thead><tr><th>Site</th><th>Cellule</th><th>Grain</th><th>Stock</th></tr></thead><tbody id="clientDetailBody"></tbody></table></div></div>
+                <div class="form-group"><h3>Camions Expédiés</h3><div class="table-wrap"><table class="edit-table"><thead><tr><th>Date</th><th>Ctr</th><th>Dest</th><th>Poids</th></tr></thead><tbody id="clientTrucksBody"></tbody></table></div></div>
+                <button class="action-btn danger-btn" onclick="window.emptyClientStock()">🗑️ Vider ce client</button>
+            </div>
+
+            <div id="phyto" class="screen">
+                <h2>Local Phyto</h2>
+                <div class="form-group">
+                    <div class="row"><div class="col"><label>Produit</label><input id="phytoName" list="phList"></div><div class="col"><label>Qté</label><input type="number" id="phytoQty"></div><div class="col"><label>Unit</label><select id="phytoUnit"><option>L</option><option>Kg</option></select></div></div>
+                    <div class="row" style="margin-top:10px;"><button class="action-btn" onclick="window.mouvPhyto('in')">Entrée</button><button class="action-btn danger-btn" onclick="window.mouvPhyto('out')">Sortie</button></div>
+                    <datalist id="phList"></datalist>
+                </div>
+                <div class="table-wrap"><table><thead><tr><th>Produit</th><th>Qté</th><th>Unit</th></tr></thead><tbody id="phytoTableBody"></tbody></table></div>
+            </div>
+
+            <div id="logs" class="screen"><h2>Historique (Technique)</h2><div class="table-wrap"><table><thead><tr><th>Date</th><th>Site</th><th>Tiers</th><th>Action</th><th>Détail</th><th>Qté</th></tr></thead><tbody id="logsTableBody"></tbody></table></div></div>
+
+            <div id="data" class="screen">
+                <h2>Données</h2>
+                <div class="row">
+                    <div class="col">
+                        <h3>Céréales</h3>
+                        <div style="display:flex; gap:5px;">
+                            <input id="addG" placeholder="Nom">
+                            <input type="number" id="addGPS" placeholder="PS" style="width:70px;">
+                            <button class="sm-btn" onclick="window.addData('g')">+</button>
+                        </div>
+                        <ul class="data-list" id="gList"></ul>
+                    </div>
+                    <div class="col">
+                        <h3>Tiers</h3>
+                        <div style="display:flex;"><input id="addC"><button class="sm-btn" onclick="window.addData('c')">+</button></div>
+                        <ul class="data-list" id="cList"></ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="params" class="screen">
+                <h2>Config</h2>
+                <div class="form-group">
+                    <h3>🗺️ Carte (Édition)</h3>
+                    <div class="map-container" id="configMapContainer"></div>
+                    <div id="positionControls" style="display:none; margin-top:10px; padding:10px; border:1px solid var(--border); border-radius:8px; text-align:center; background:var(--dark-surface);">
+                        <p>Selection : <strong id="selectedItemName" style="color:var(--primary)"></strong></p>
+                        <div id="sizeControls" style="display:none; margin-bottom:10px; border-bottom:1px dashed #555; padding-bottom:10px;">
+                            <div style="display:flex; justify-content:center; gap:10px;"><button class="action-btn sm-btn" onclick="window.resizeItem('w', -2)">Larg -</button><button class="action-btn sm-btn" onclick="window.resizeItem('w', 2)">Larg +</button></div>
+                            <div style="display:flex; justify-content:center; gap:10px; margin-top:5px;"><button class="action-btn sm-btn" onclick="window.resizeItem('h', -2)">Haut -</button><button class="action-btn sm-btn" onclick="window.resizeItem('h', 2)">Haut +</button></div>
+                        </div>
+                        <div style="display:flex; flex-direction:column; align-items:center; gap:5px;">
+                            <button class="action-btn sm-btn" onclick="window.moveItem('up')">⬆️</button>
+                            <div style="display:flex; gap:20px;"><button class="action-btn sm-btn" onclick="window.moveItem('left')">⬅️</button><button class="action-btn sm-btn" onclick="window.moveItem('right')">➡️</button></div>
+                            <button class="action-btn sm-btn" onclick="window.moveItem('down')">⬇️</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group"><h3>Sites</h3><table class="edit-table"><tbody id="sitesListBody"></tbody></table><div style="display:flex;"><input id="newSiteNameInput"><button class="sm-btn" onclick="window.addNewSite()">OK</button></div></div>
+                <div class="form-group"><h3>Cellules</h3><div class="table-wrap"><table class="edit-table"><thead><tr><th>Nom</th><th>Site</th><th>Cap. (T)</th><th>Actions</th></tr></thead><tbody id="silosEditBody"></tbody></table></div></div>
+                <div class="form-group"><h3>Bâtiments</h3><div class="table-wrap"><table class="edit-table"><thead><tr><th>Nom</th><th>Site</th><th>Actions</th></tr></thead><tbody id="hangarsEditBody"></tbody></table></div></div>
+                <div class="row"><div class="col"><input id="newSiloName" placeholder="Nom Silo"><input id="newSiloCap" type="number" placeholder="Cap. (T)"><button class="action-btn" onclick="window.addSilo()">+ Silo</button></div><div class="col"><input id="newHangarName" placeholder="Bat."><button class="action-btn" onclick="window.addHangar()">+ Bat</button></div></div>
+                <button class="action-btn danger-btn" onclick="window.resetData()">⚠️ RESET TOTAL</button>
+            </div>
+        </main>
+    </div>
+
+    <div class="modal-overlay" id="truckModal" onclick="window.closeModal(event)"><div class="modal-box"><h3>Détail Camion</h3><p><strong>Date:</strong> <span id="mdlDate"></span></p><p><strong>Contrat:</strong> <span id="mdlContract"></span></p><hr><h4>Chargement:</h4><ul id="mdlList" style="padding-left:20px;"></ul><hr><p style="text-align:right;">Total: <strong><span id="mdlTotal"></span> kg</strong></p><button class="action-btn sm-btn" onclick="document.getElementById('truckModal').style.display='none'">Fermer</button></div></div>
+
+    <script type="module">
+        // GESTION SPLASH SCREEN
+        setTimeout(() => {
+            const splash = document.getElementById('splash-screen');
+            const app = document.getElementById('app-content');
+            app.style.display = 'flex';
+            splash.style.opacity = '0';
+            setTimeout(() => { splash.style.display = 'none'; }, 800);
+        }, 3000); 
+
+        // GESTION ERREURS
+        window.onerror = function(message, source, lineno, colno, error) { console.error("Error:", message); window.showToast("Erreur : " + message, 'error'); };
+
+        // --- NOUVEAU SYSTÈME DE NOTIFICATIONS ---
+        window.showToast = function(msg, type='success') {
+            const c = document.getElementById('toast-container');
+            const d = document.createElement('div');
+            d.className = `toast ${type}`;
+            d.innerHTML = `<span>${msg}</span><span>${type==='error'?'⚠️':'✅'}</span>`;
+            c.appendChild(d);
+            setTimeout(() => { 
+                d.style.opacity='0'; d.style.transform='translateX(50px)';
+                setTimeout(()=>d.remove(), 300);
+            }, 3000);
+        }
+
+        window.ask = function(msg, onYes) {
+            const m = document.getElementById('confirm-modal');
+            document.getElementById('confirm-msg').innerText = msg;
+            const yesBtn = document.getElementById('confirm-yes-btn');
+            // Clone pour virer les event listeners précédents
+            const newBtn = yesBtn.cloneNode(true);
+            yesBtn.parentNode.replaceChild(newBtn, yesBtn);
+            newBtn.onclick = () => { onYes(); window.closeConfirm(true); };
+            m.style.display = 'flex';
+        }
+
+        window.closeConfirm = function() { document.getElementById('confirm-modal').style.display = 'none'; }
+        window.alert = function(msg) { 
+            document.getElementById('info-msg').innerText = msg;
+            document.getElementById('info-modal').style.display = 'flex';
+        }
+
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDgLZDKaU4a9U7IJO9lhnEOdksTJh0OyP4",
+            authDomain: "agristock-93cc7.firebaseapp.com",
+            databaseURL: "https://agristock-93cc7-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "agristock-93cc7",
+            storageBucket: "agristock-93cc7.firebasestorage.app",
+            messagingSenderId: "209362221476",
+            appId: "1:209362221476:web:4f543f26bc0e0444dea931"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+        const dbRef = ref(database, 'ferme_data');
+
+        let db = { sites: [{ id: 'site1', name: 'Ferme Principale' }], silos: [], hangars: [], grains: [{name:'Blé', ps:76}], clients: ['Nous'], phytos: [], logs: [], trucks: [], contracts: [], truffes: [] };
+        let currentSiteId = 'site1';
+        let viewingClient = null;
+        let editMode = false;
+        let truffeEditMode = false;
+        let truckTotalWeight = 0;
+        let truckAssignedWeight = 0;
+        let truckSources = [];
+        let selectedContractId = null;
+        let selectedItem = null;
+
+        document.getElementById('syncStatus').innerText = "🟠 Connexion...";
+        
+        onValue(dbRef, (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                db = { ...db, ...data };
+                const toArray = (obj) => Array.isArray(obj) ? obj : (obj ? Object.values(obj) : []);
+                
+                db.sites = toArray(db.sites); db.silos = toArray(db.silos); db.hangars = toArray(db.hangars);
+                db.grains = toArray(db.grains); db.clients = toArray(db.clients); db.phytos = toArray(db.phytos);
+                db.logs = toArray(db.logs); db.trucks = toArray(db.trucks); db.contracts = toArray(db.contracts);
+                db.truffes = toArray(db.truffes);
+
+                if(db.sites.length===0) db.sites=[{ id: 'site1', name: 'Ferme Principale' }];
+                db.grains = db.grains.map(g => (typeof g === 'string') ? { name: g, ps: 76 } : g);
+                db.silos.forEach(s => { 
+                    if (!s.owners) s.owners={}; if (!s.psValues) s.psValues={}; if (!s.current) s.current=0; 
+                    if (!s.pos) s.pos={top:50,left:50}; if (!s.capacity) s.capacity=10; 
+                });
+                
+                document.getElementById('syncStatus').innerText = "🟢 En ligne";
+                if (!db.sites.find(s=>s.id==currentSiteId) && db.sites.length>0) currentSiteId = db.sites[0].id;
+                try { renderAll(); } catch(e) { console.error(e); }
+            } else { updateCloud(); }
+        });
+
+        function updateCloud() {
+            document.getElementById('syncStatus').innerText = "🟡...";
+            set(dbRef, db).then(() => document.getElementById('syncStatus').innerText = "🟢 En ligne");
+        }
+
+        function renderAll() {
+            const sSel = document.getElementById('siteSelector');
+            sSel.innerHTML = db.sites.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+            sSel.value = currentSiteId;
+            
+            document.getElementById('inGrainType').innerHTML = db.grains.map(g=>`<option>${g.name}</option>`).join('');
+            document.getElementById('ctrGrain').innerHTML = db.grains.map(g=>`<option>${g.name}</option>`).join('');
+            const clOpts = db.clients.map(c=>`<option>${c}</option>`).join('');
+            document.getElementById('inClientSelect').innerHTML = clOpts;
+            document.getElementById('ctrSeller').innerHTML = clOpts;
+            document.getElementById('propDestSelect').innerHTML = clOpts;
+            document.getElementById('outOwnerSelect').innerHTML = clOpts;
+
+            const sSite = db.silos.filter(s=>s.siteId == currentSiteId);
+            const allOpts = sSite.map(s=>`<option value="${s.id}">${s.name} (${s.content||'Vide'})</option>`).join('');
+            document.getElementById('inSiloSelect').innerHTML = allOpts;
+            document.getElementById('toSiloSelect').innerHTML = allOpts;
+
+            const filled = sSite.filter(s => s.current > 0);
+            const fOpts = filled.length ? filled.map(s=>`<option value="${s.id}">${s.name} (${s.content})</option>`).join('') : '<option value="">Aucun silo plein</option>';
+            document.getElementById('outSiloSelect').innerHTML = fOpts;
+            document.getElementById('fromSiloSelect').innerHTML = fOpts;
+            document.getElementById('propSiloSelect').innerHTML = fOpts;
+
+            const isConfig = document.getElementById('params').classList.contains('active');
+            renderMap(sSite, db.hangars.filter(h=>h.siteId == currentSiteId), isConfig); 
+            window.renderSilosGrid(sSite);
+
+            window.renderStocks(); window.renderLogs(); window.renderRegistre(); window.renderTruffe();
+            window.renderPhyto(); window.renderDataLists(); window.renderConfig(); 
+            window.renderContracts(); window.renderContractSelect();
+            window.updateOwnerSelect(); window.updateProprioSource();
+            if(document.getElementById('clientDetail').classList.contains('active')) window.renderClientTables();
+        }
+
+        function getGrainPS(gName) { const g = db.grains.find(x => x.name === gName); return g ? g.ps : 76; }
+
+        function calculateSiloAvgPS(silo) {
+            let totalW = 0; let totalWxPS = 0;
+            Object.keys(silo.owners||{}).forEach(o => {
+                const w = silo.owners[o];
+                const ps = (silo.psValues && silo.psValues[o]) ? silo.psValues[o] : getGrainPS(silo.content);
+                totalW += w; totalWxPS += w * ps;
+            });
+            return totalW > 0 ? (totalWxPS / totalW).toFixed(1) : getGrainPS(silo.content);
+        }
+
+        function renderMap(silos, hangars, isConfig) {
+            const mapC = isConfig ? document.getElementById('configMapContainer') : document.getElementById('mapContainer');
+            if (!mapC) return; mapC.innerHTML = '';
+            
+            if(isConfig && selectedItem) {
+                document.getElementById('positionControls').style.display = 'block';
+                document.getElementById('selectedItemName').innerText = selectedItem.name;
+                document.getElementById('sizeControls').style.display = selectedItem.type === 'hangar' ? 'block' : 'none';
+            } else if(isConfig) { document.getElementById('positionControls').style.display = 'none'; }
+
+            hangars.forEach(h => {
+                const div = document.createElement('div');
+                div.className = 'map-silo';
+                div.style.cssText = `position:absolute; top:${h.pos.top}%; left:${h.pos.left}%; width:${h.w||20}%; height:${h.h||20}%; background:rgba(255,255,255,0.1); border:2px solid #555; display:flex; justify-content:center; align-items:center; color:white; font-weight:bold;`;
+                if (isConfig && selectedItem && selectedItem.id === h.id) { div.style.borderColor = 'var(--danger)'; div.style.borderWidth = '4px'; }
+                div.innerHTML = h.name; mapC.appendChild(div);
+                if (isConfig) div.onclick = () => window.selectItem(h, 'hangar');
+            });
+
+            silos.forEach(s => {
+                const ps = parseFloat(calculateSiloAvgPS(s));
+                const capKg = s.capacity * 1000; const effCap = (capKg / 76) * ps; 
+                const pct = Math.min(100, Math.round(s.current / effCap * 100));
+                const isFull = pct >= 80;
+                const bg = isFull ? 'var(--danger)' : 'var(--primary)';
+                const div = document.createElement('div');
+                div.className = 'map-silo';
+                div.style.cssText = `position:absolute; top:${s.pos.top}%; left:${s.pos.left}%; width:60px; height:80px; background:var(--input-bg); border:2px solid #555; border-radius:5px; text-align:center; padding-top:5px; font-size:0.7rem;`;
+                if (isConfig && selectedItem && selectedItem.id === s.id) { div.style.borderColor = 'var(--danger)'; div.style.borderWidth = '4px'; }
+                div.innerHTML = `<div class="silo-visual-map">
+                                    <div class="silo-map-label"><b>${s.name}</b><br>${pct}%</div>
+                                    <div style="flex:1; display:flex; align-items:flex-end;">
+                                        <div class="silo-visual-bar" style="height:${pct}%; background:${bg}"></div>
+                                    </div>
+                                 </div>`;
+                mapC.appendChild(div);
+                if (isConfig) div.onclick = () => window.selectItem(s, 'silo');
+                else div.onclick = () => window.alert(`${s.name}\n${s.content||'Vide'}\nStock: ${s.current.toLocaleString()} kg\nPS Moy: ${ps}\nRemplissage: ${pct}%`);
+            });
+        }
+
+        window.showScreen = function(id) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+            const btn = document.querySelector(`nav button[onclick="window.showScreen('${id}')"]`);
+            if(btn) btn.classList.add('active');
+            if(id==='dashboard') document.getElementById('viewToggler').style.display='flex'; else document.getElementById('viewToggler').style.display='none';
+            if(id!=='params') window.deselectItem();
+            renderAll();
+        }
+        window.changeSite = function() { currentSiteId = document.getElementById('siteSelector').value; renderAll(); }
+        window.switchView = function(m) { 
+            document.getElementById('viewPlan').style.display=m==='plan'?'block':'none'; 
+            document.getElementById('viewGrid').style.display=m==='grid'?'grid':'none'; 
+            document.getElementById('btnPlan').classList.toggle('active', m==='plan');
+            document.getElementById('btnGrid').classList.toggle('active', m==='grid');
+        }
+        window.switchTrans = function(m) { 
+            document.getElementById('transPhys').style.display = m==='phys' ? 'block' : 'none';
+            document.getElementById('transProp').style.display = m==='prop' ? 'block' : 'none';
+            document.getElementById('btnTransPhys').classList.toggle('active', m==='phys');
+            document.getElementById('btnTransProp').classList.toggle('active', m==='prop');
+        }
+        window.calcNet = function(p) { const e=parseFloat(document.getElementById(p+'Empty').value)||0, f=parseFloat(document.getElementById(p+'Full').value)||0; if(e&&f) document.getElementById(p+'Net').value=Math.abs(f-e); }
+        window.manualNet = function(p) { if(p==='out') truckTotalWeight=parseFloat(document.getElementById('outNet').value)||0; }
+
+        window.renderSilosGrid = function(silos) {
+            const gridC = document.getElementById('silosGridDisplay');
+            if (!gridC) return; gridC.innerHTML = '';
+            silos.forEach(s => {
+                const ps = parseFloat(calculateSiloAvgPS(s));
+                const effCap = (s.capacity * 1000 / 76) * ps;
+                const pct = Math.min(100, Math.round(s.current / effCap * 100));
+                const isFull = pct >= 80;
+                const div = document.createElement('div');
+                div.className = `silo-card ${isFull?'alert-border':''}`;
+                div.innerHTML = `<h4>${s.name}</h4><div class="silo-visual"><div class="silo-fill ${isFull?'alert-fill':''}" style="height:${pct}%; background:${isFull?'var(--danger)':'var(--primary)'}"></div></div><p><strong>${s.content||'Vide'}</strong></p><p>${s.current.toLocaleString()} kg</p><p style="font-size:0.8rem">PS Moy: ${ps}</p><p style="font-size:0.8rem">${pct}% Plein</p>`;
+                gridC.appendChild(div);
+            });
+        }
+
+        window.selectItem = function(item, type) {
+            selectedItem = { ...item, type }; 
+            const sSite = db.silos.filter(s=>s.siteId == currentSiteId);
+            renderMap(sSite, db.hangars.filter(h=>h.siteId==currentSiteId), true);
+        };
+        window.deselectItem = function() { selectedItem = null; document.getElementById('positionControls').style.display = 'none'; };
+        
+        window.moveItem = function(dir) {
+            if (!selectedItem) return;
+            const step = 1; 
+            if(dir==='up') selectedItem.pos.top -= step; 
+            if(dir==='down') selectedItem.pos.top += step; 
+            if(dir==='left') selectedItem.pos.left -= step; 
+            if(dir==='right') selectedItem.pos.left += step;
+            const collection = selectedItem.type === 'silo' ? db.silos : db.hangars;
+            const realItem = collection.find(i => i.id == selectedItem.id);
+            if(realItem) { realItem.pos = selectedItem.pos; updateCloud(); }
+        };
+        
+        window.resizeItem = function(dim, delta) {
+            if (!selectedItem || selectedItem.type !== 'hangar') return;
+            const realItem = db.hangars.find(i => i.id == selectedItem.id);
+            if(realItem) { if(dim === 'w') realItem.w += delta; if(dim === 'h') realItem.h += delta; updateCloud(); }
+        };
+
+        window.gererEntree = function() {
+            const cl=document.getElementById('inClientSelect').value, gr=document.getElementById('inGrainType').value, sid=document.getElementById('inSiloSelect').value, w=parseFloat(document.getElementById('inNet').value);
+            const ps = parseFloat(document.getElementById('inPS').value);
+            if(!w) return window.showToast('Poids requis', 'error'); 
+            const s=db.silos.find(x=>x.id==sid);
+            if(ps > 0) { const grainObj = db.grains.find(g => g.name === gr); if(grainObj) grainObj.ps = ps; }
+            
+            const processEntree = () => {
+                if(ps > 0) {
+                    const curW = s.owners[cl] || 0; const curPS = (s.psValues && s.psValues[cl]) ? s.psValues[cl] : 0;
+                    let newPS = ps; if (curW > 0) newPS = ((curW * curPS) + (w * ps)) / (curW + w);
+                    if (!s.psValues) s.psValues = {}; s.psValues[cl] = newPS;
+                }
+                s.content=gr; s.owners[cl]=(s.owners[cl]||0)+w; s.current+=w;
+                db.logs.unshift({date:new Date().toLocaleString('fr-FR'), site:db.sites.find(x=>x.id==currentSiteId)?.name, client:cl, type:'Entrée', detail:`${gr} -> ${s.name}`, qty:w});
+                updateCloud(); window.showToast('Entrée validée !'); document.getElementById('inNet').value=''; document.getElementById('inPS').value='';
+            }
+
+            if(s.content && s.content!==gr && s.current>0) {
+                window.ask('Attention: Mélange de grains différents. Continuer ?', processEntree);
+            } else {
+                processEntree();
+            }
+        };
+
+        window.gererTransvase = function() {
+            const srcId = document.getElementById('fromSiloSelect').value;
+            const dstId = document.getElementById('toSiloSelect').value;
+            let w = parseFloat(document.getElementById('mooveWeight').value);
+            if (!srcId || !dstId || !w) return window.showToast("Données incomplètes", 'error');
+            if (srcId === dstId) return window.showToast("Source et Destination identiques !", 'error');
+            const sSrc = db.silos.find(s => s.id == srcId);
+            const sDst = db.silos.find(s => s.id == dstId);
+            if (sSrc.current < w) return window.showToast(`Stock insuffisant (Dispo: ${sSrc.current} kg)`, 'error');
+            const grainType = sSrc.content;
+
+            const processTransfer = () => {
+                let remainingToMove = w; const ownersList = Object.keys(sSrc.owners);
+                for (let owner of ownersList) {
+                    if (remainingToMove <= 0) break;
+                    let available = sSrc.owners[owner];
+                    if (available <= 0) continue;
+                    let take = Math.min(available, remainingToMove);
+                    sSrc.owners[owner] -= take;
+                    if (sSrc.owners[owner] <= 0) delete sSrc.owners[owner];
+                    sDst.owners[owner] = (sDst.owners[owner] || 0) + take;
+                    remainingToMove -= take;
+                }
+                sSrc.current -= w; if(sSrc.current <= 0.1) { sSrc.current = 0; sSrc.content = null; }
+                sDst.current += w; sDst.content = grainType;
+                db.logs.unshift({date: new Date().toLocaleString('fr-FR'), site: '-', client: 'Auto', type: 'Transfert', detail: `${sSrc.name} -> ${sDst.name}`, qty: w});
+                updateCloud(); window.showToast("Transfert effectué"); document.getElementById('mooveWeight').value = '';
+            };
+
+            if (sDst.current > 0 && sDst.content && sDst.content !== grainType) {
+                window.ask(`Attention : Mélange de ${grainType} vers ${sDst.content}. Continuer ?`, processTransfer);
+            } else {
+                processTransfer();
+            }
+        };
+
+        /* --- GESTION TRUFFES --- */
+        window.addTruffe = function() {
+            const date = document.getElementById('trDate').value || new Date().toISOString().slice(0,10);
+            const dead = document.getElementById('trDead').value;
+            const name = document.getElementById('trName').value;
+            const contact = document.getElementById('trContact').value;
+            const weight = parseFloat(document.getElementById('trWeight').value);
+            const price = parseFloat(document.getElementById('trPrice').value);
+            
+            if(!name || !weight) return window.showToast("Nom et Poids obligatoires", 'error');
+            
+            db.truffes.push({ 
+                id: Date.now(), 
+                date: date, 
+                deadline: dead, 
+                name: name, 
+                contact: contact, 
+                weight: weight,
+                price: price || 0,
+                validated: false
+            });
+            updateCloud(); window.showToast("Demande ajoutée");
+            document.getElementById('trName').value=''; document.getElementById('trContact').value=''; document.getElementById('trWeight').value=''; document.getElementById('trPrice').value='';
+        };
+        
+        window.delTruffe = function(id) { 
+            window.ask("Supprimer définitivement cette commande ?", () => {
+                db.truffes = db.truffes.filter(t => t.id !== id); 
+                updateCloud();
+                window.showToast("Commande supprimée");
+            });
+        };
+        
+        window.validateTruffe = function(id) {
+            const t = db.truffes.find(x => x.id === id);
+            if(t) {
+                t.validated = true;
+                t.validatedDate = new Date().toLocaleDateString('fr-FR');
+                updateCloud();
+                window.showToast("Commande validée !");
+            }
+        };
+
+        window.toggleTruffeEdit = function() {
+            truffeEditMode = !truffeEditMode;
+            document.getElementById('btnTrEdit').innerText = truffeEditMode ? "🔓 Fin Édition" : "✏️ Mode Édition";
+            document.getElementById('btnTrEdit').style.background = truffeEditMode ? "var(--danger)" : "transparent";
+            window.renderTruffe();
+        };
+
+        window.updateTruffeVal = function(id, field, val) {
+            const t = db.truffes.find(x => x.id === id);
+            if(t) {
+                t[field] = val;
+                updateCloud();
+            }
+        }
+
+        window.renderTruffe = function() {
+            const tbody = document.getElementById('truffeBody'); 
+            const tbodyHist = document.getElementById('truffeHistoryBody');
+            if(!tbody || !tbodyHist) return;
+            
+            if(!document.getElementById('trDate').value) document.getElementById('trDate').value = new Date().toISOString().slice(0,10);
+            
+            const pending = (db.truffes || []).filter(t => !t.validated).sort((a,b) => (a.deadline || '9999') > (b.deadline || '9999') ? 1 : -1);
+            const history = (db.truffes || []).filter(t => t.validated).sort((a,b) => b.id - a.id);
+
+            // Calcul Total
+            const totalPending = pending.reduce((sum, t) => sum + (parseFloat(t.weight)||0), 0);
+            document.getElementById('trTotalWeight').innerText = totalPending.toLocaleString('fr-FR');
+
+            // Render Pending
+            tbody.innerHTML = pending.map(t => {
+                const isUrgent = t.deadline && new Date(t.deadline) < new Date(Date.now() + 86400000*2);
+                const style = isUrgent ? 'color:var(--danger); font-weight:bold;' : '';
+                
+                if(truffeEditMode) {
+                    return `<tr>
+                        <td><input type="date" value="${t.deadline}" onchange="updateTruffeVal(${t.id}, 'deadline', this.value)"></td>
+                        <td><input type="text" value="${t.name}" onchange="updateTruffeVal(${t.id}, 'name', this.value)"></td>
+                        <td><input type="text" value="${t.contact}" onchange="updateTruffeVal(${t.id}, 'contact', this.value)"></td>
+                        <td><input type="number" value="${t.weight}" style="width:60px;" onchange="updateTruffeVal(${t.id}, 'weight', parseFloat(this.value))"></td>
+                        <td><input type="number" value="${t.price}" style="width:50px;" onchange="updateTruffeVal(${t.id}, 'price', parseFloat(this.value))"></td>
+                        <td><button class="sm-btn danger-btn" onclick="window.delTruffe(${t.id})">X</button></td>
+                    </tr>`;
+                } else {
+                    return `<tr>
+                        <td style="${style}">${t.deadline ? new Date(t.deadline).toLocaleDateString() : '-'}</td>
+                        <td>${t.name}</td>
+                        <td>${t.contact}</td>
+                        <td>${t.weight}g</td>
+                        <td>${t.price||'-'} €</td>
+                        <td style="display:flex; gap:5px;">
+                            <button class="sm-btn valid-btn" title="Valider" onclick="window.validateTruffe(${t.id})">✅</button>
+                            <button class="sm-btn danger-btn" title="Supprimer" onclick="window.delTruffe(${t.id})">❌</button>
+                        </td>
+                    </tr>`;
+                }
+            }).join('');
+
+            // Render History
+            tbodyHist.innerHTML = history.map(t => `
+                <tr style="opacity:0.7">
+                    <td>${t.validatedDate || '-'}</td>
+                    <td>${t.name}</td>
+                    <td>${t.weight}g</td>
+                    <td>${t.price||'-'} €</td>
+                </tr>
+            `).join('');
+        };
+
+        window.renderLogs = function() { document.getElementById('logsTableBody').innerHTML = (db.logs||[]).map(l => `<tr><td>${l.date}</td><td>${l.site}</td><td>${l.client}</td><td>${l.type}</td><td>${l.detail}</td><td>${l.qty}</td></tr>`).join(''); };
+        window.renderRegistre = function() {
+            const t = document.getElementById('registreBody');
+            const entries = (db.logs || []).filter(l => l.type === 'Entrée' || l.type === 'Sortie');
+            t.innerHTML = entries.map(l => `<tr><td>${l.date}</td><td><span class="badge ${l.type==='Entrée'?'in':'out'}">${l.type}</span></td><td>${l.client}</td><td>${l.detail}</td><td>${l.qty.toLocaleString('fr-FR')}</td></tr>`).join('');
+        };
+        window.exportExcel = function() {
+            const rows = (db.logs || []).filter(l => l.type === 'Entrée' || l.type === 'Sortie');
+            if(rows.length === 0) return window.showToast("Rien à exporter.", 'info');
+            let csv = "\uFEFFDate;Type;Tiers;Détail;Poids (kg)\n";
+            rows.forEach(r => { csv += `${r.date};${r.type};${r.client};${(r.detail || '').replace(/;/g, ',')};${r.qty}\n`; });
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const link = document.createElement("a"); const url = URL.createObjectURL(blob); link.setAttribute("href", url); link.setAttribute("download", "Registre_Agri_" + new Date().toISOString().slice(0,10) + ".csv"); document.body.appendChild(link); link.click(); document.body.removeChild(link);
+        };
+        window.renderPhyto = function() { document.getElementById('phytoTableBody').innerHTML = (db.phytos||[]).map(p => `<tr><td>${p.name}</td><td>${p.qty}</td><td>${p.unit}</td></tr>`).join(''); document.getElementById('phList').innerHTML = (db.phytos||[]).map(p=>`<option value="${p.name}">`).join(''); };
+        window.renderDataLists = function() { 
+            document.getElementById('gList').innerHTML = (db.grains||[]).map((g,i)=>`<li>${g.name} (PS:${g.ps}) <button class="sm-btn danger-btn" onclick="window.deleteData('g','${g.name}')">X</button></li>`).join(''); 
+            document.getElementById('cList').innerHTML = (db.clients||[]).map((c,i)=>`<li>${c}<button class="sm-btn danger-btn" onclick="window.deleteData('c','${c}')">X</button></li>`).join(''); 
+        };
+        window.renderConfig = function() {
+            document.getElementById('sitesListBody').innerHTML = (db.sites||[]).map(s => `<tr><td><input value="${s.name}" onchange="updateItem('sites', '${s.id}', 'name', this.value)"></td><td>${db.sites.length>1 ? `<button class="action-btn sm-btn danger-btn" onclick="deleteItem('sites', '${s.id}')">X</button>` : ''}</td></tr>`).join('');
+            document.getElementById('silosEditBody').innerHTML = (db.silos||[]).filter(s=>s.siteId==currentSiteId).map(s => `<tr><td><input value="${s.name}" onchange="updateItem('silos', ${s.id}, 'name', this.value)"></td><td>${db.sites.find(st=>st.id==s.siteId)?.name}</td><td><input type="number" value="${s.capacity}" onchange="updateItem('silos', ${s.id}, 'capacity', this.value)"></td><td><button class="action-btn sm-btn danger-btn" onclick="deleteItem('silos', ${s.id})">X</button></td></tr>`).join('');
+            document.getElementById('hangarsEditBody').innerHTML = (db.hangars||[]).filter(h=>h.siteId==currentSiteId).map(h => `<tr><td><input value="${h.name}" onchange="updateItem('hangars', ${h.id}, 'name', this.value)"></td><td>${db.sites.find(st=>st.id==h.siteId)?.name}</td><td><button class="action-btn sm-btn danger-btn" onclick="deleteItem('hangars', ${h.id})">X</button></td></tr>`).join('');
+            renderMap(db.silos.filter(s=>s.siteId==currentSiteId), db.hangars.filter(h=>h.siteId==currentSiteId), true);
+        };
+        window.renderContracts = function() { 
+            const tbA=document.getElementById('contractsTableBody'), tbF=document.getElementById('contractsFinishedBody'); tbA.innerHTML=''; tbF.innerHTML='';
+            (db.contracts||[]).forEach(c=>{ const h=`<tr><td>${c.num}</td><td>${c.seller}</td><td>${c.grain}</td><td>${(c.delivered||0).toLocaleString('fr-FR')}/${(c.weightT*1000).toLocaleString('fr-FR')}</td><td>${c.finished?`<button class="sm-btn danger-btn" onclick="delContract(${c.id})">X</button>`:`<button class="sm-btn valid-btn" onclick="closeContract(${c.id})">OK</button>`}</td></tr>`; if(c.finished)tbF.innerHTML+=h; else tbA.innerHTML+=h;});
+        };
+        window.renderContractSelect = function(){ document.getElementById('outContractSelect').innerHTML='<option value="">Aucun</option>'+(db.contracts||[]).filter(c=>!c.finished).map(c=>`<option value="${c.id}">${c.num} (${c.seller})</option>`).join(''); };
+        window.renderStocks = function() {
+            const c = document.getElementById('deliveryContainer'); c.innerHTML = '';
+            const clientStocks = {};
+            (db.silos || []).forEach(s => { Object.keys(s.owners || {}).forEach(owner => { if (s.owners[owner] > 0) { if (!clientStocks[owner]) clientStocks[owner] = { total: 0, silos: [] }; clientStocks[owner].total += s.owners[owner]; clientStocks[owner].silos.push({ name: s.name, grain: s.content, weight: s.owners[owner] }); } }); });
+            for (const client in clientStocks) { 
+                const data = clientStocks[client];
+                const details = data.silos.map(s => s.grain).filter((v,i,a)=>a.indexOf(v)===i).join(', ');
+                c.innerHTML += `<div class="stock-card" onclick="window.openClientDetails('${client}')"><h4 style="margin:0;">${client}</h4><p style="margin:5px 0;"><strong>Total: ${data.total.toLocaleString('fr-FR')} kg</strong></p><p style="font-size:0.8rem;">${details}</p></div>`; 
+            }
+            if(c.innerHTML === '') c.innerHTML = '<p style="text-align:center;">Aucun stock.</p>';
+        };
+        window.openClientDetails = function(clientName) { viewingClient = clientName; document.getElementById('detailTitle').innerText = "Détail : " + clientName; window.showScreen('clientDetail'); };
+        window.renderClientTables = function() {
+            const dBody = document.getElementById('clientDetailBody'); const tBody = document.getElementById('clientTrucksBody'); dBody.innerHTML = ''; tBody.innerHTML = '';
+            (db.silos || []).filter(s => s.owners[viewingClient] > 0).forEach(s => { 
+                const wDisplay = editMode ? `<input type="number" value="${s.owners[viewingClient]}" style="width:100px; padding:5px;" onchange="window.updateStockDirect('${s.id}', '${viewingClient}', this.value)">` : `${s.owners[viewingClient].toLocaleString('fr-FR')} kg`;
+                dBody.innerHTML += `<tr><td>${db.sites.find(site=>site.id===s.siteId)?.name}</td><td>${s.name}</td><td>${s.content}</td><td>${wDisplay}</td></tr>`; 
+            });
+            db.trucks.filter(t => t.client === viewingClient).forEach(t => { tBody.innerHTML += `<tr onclick="window.showTruckModal(${t.id})" style="cursor:pointer;"><td>${new Date(t.date).toLocaleDateString()}</td><td>${t.contractNum}</td><td>${db.sites.find(site=>site.id===t.siteId)?.name || 'N/A'}</td><td>${t.weight.toLocaleString('fr-FR')} kg</td></tr>`; });
+        }
+        window.updateStockDirect = function(siloId, client, newVal) { const w = parseFloat(newVal); const s = db.silos.find(x => x.id == siloId); if (isNaN(w) || w < 0) return window.showToast("Valeur invalide", 'error'); const oldVal = s.owners[client] || 0; const diff = w - oldVal; s.owners[client] = w; if(s.owners[client] === 0) delete s.owners[client]; s.current += diff; if(s.current <= 0) { s.current = 0; s.content = null; } updateCloud(); };
+        window.toggleEditMode = function() { editMode = !editMode; document.getElementById('lockBtn').innerText = editMode ? '🔓' : '🔒'; document.getElementById('lockBtn').style.background = editMode ? 'var(--danger)' : '#555'; if(viewingClient) window.renderClientTables(); };
+        window.showTruckModal = function(truckId) { const t = db.trucks.find(x => x.id === truckId); if(!t) return; document.getElementById('mdlDate').innerText = new Date(t.date).toLocaleString(); document.getElementById('mdlContract').innerText = t.contractNum; document.getElementById('mdlTotal').innerText = t.weight.toLocaleString('fr-FR'); document.getElementById('mdlList').innerHTML = (t.sources || []).map(s => `<li>${s.owner} (Silo: ${s.siloName}): ${s.weight} kg</li>`).join(''); document.getElementById('truckModal').style.display = 'flex'; };
+        window.addContract = function() { const num=document.getElementById('ctrNum').value, w=parseFloat(document.getElementById('ctrWeightT').value); if(num&&w) { db.contracts.push({id:Date.now(), num, seller:document.getElementById('ctrSeller').value, grain:document.getElementById('ctrGrain').value, weightT:w, price:document.getElementById('ctrPrice').value, date:document.getElementById('ctrDate').value, delivered:0, finished:false}); updateCloud(); window.showToast('Contrat ajouté');} }
+        window.closeContract = function(id){ window.ask('Cloturer ce contrat ?', () => { db.contracts.find(x=>x.id===id).finished=true; updateCloud(); window.showToast('Contrat clos'); }); }
+        window.delContract = function(id){ window.ask('Supprimer ce contrat ?', () => { db.contracts=db.contracts.filter(x=>x.id!==id); updateCloud(); window.showToast('Contrat supprimé'); }); }
+        window.loadContractInfo = function(){ const cid=document.getElementById('outContractSelect').value; if(cid){const c=db.contracts.find(x=>x.id==cid); document.getElementById('contractInfoDisplay').style.display='block'; document.getElementById('contractInfoDisplay').innerText=`Reste: ${((c.weightT*1000)-c.delivered)} kg`;} else document.getElementById('contractInfoDisplay').style.display='none'; }
+        window.goToSortieStep2 = function(){ const w=parseFloat(document.getElementById('outNet').value); if(!w) return window.showToast('Poids requis', 'error'); truckTotalWeight=w; truckAssignedWeight=0; truckSources=[]; document.getElementById('sortieStep1').style.display='none'; document.getElementById('sortieStep2').style.display='block'; document.getElementById('lblTruckTotal').innerText=w.toLocaleString('fr-FR'); };
+        window.resetSortie = function(){ document.getElementById('sortieStep1').style.display='block'; document.getElementById('sortieStep2').style.display='none'; document.getElementById('outNet').value=''; }
+        window.updateOwnerSelect = function(){ const s=db.silos.find(x=>x.id==document.getElementById('outSiloSelect').value); const os=document.getElementById('outOwnerSelect'); os.innerHTML=''; if(s)Object.keys(s.owners).forEach(o=>{if(s.owners[o]>0)os.innerHTML+=`<option value="${o}">${o} (${s.owners[o]}kg)</option>`}); }
+        window.addSourceToTruck = function(){ const sid=document.getElementById('outSiloSelect').value, own=document.getElementById('outOwnerSelect').value, w=parseFloat(document.getElementById('outPartWeight').value); const s=db.silos.find(x=>x.id==sid); if(!s||!w||s.owners[own]<w) return window.showToast('Erreur Stock', 'error'); truckSources.push({siloId:sid, siloName:s.name, owner:own, weight:w}); truckAssignedWeight+=w; document.getElementById('truckSourcesList').innerHTML=truckSources.map((t,i)=>`<li>${t.owner} - ${t.weight}kg <button onclick="removeSrc(${i})">X</button></li>`).join(''); document.getElementById('lblAssigned').innerText=truckAssignedWeight.toLocaleString('fr-FR'); }
+        window.removeSrc = function(i){ truckAssignedWeight-=truckSources[i].weight; truckSources.splice(i,1); document.getElementById('lblAssigned').innerText=truckAssignedWeight.toLocaleString('fr-FR'); document.getElementById('truckSourcesList').innerHTML=truckSources.map((t,i)=>`<li>${t.owner} - ${t.weight}kg <button onclick="removeSrc(${i})">X</button></li>`).join(''); }
+        
+        window.finalizeTruck = function(){ 
+            const processFinalize = () => {
+                const cid=document.getElementById('outContractSelect').value, ctr=db.contracts.find(x=>x.id==cid); 
+                truckSources.forEach(src=>{ const s=db.silos.find(x=>x.id==src.siloId); s.owners[src.owner]-=src.weight; s.current-=src.weight; if(s.current<=0)s.content=null; db.logs.push({date:new Date().toLocaleString(), site:'-', client:src.owner, type:'Sortie', detail:`Camion`, qty:-src.weight}); }); 
+                if(ctr) ctr.delivered+=truckTotalWeight; 
+                db.trucks.push({id:Date.now(), date:new Date().toISOString(), contractId:cid, contractNum:ctr?ctr.num:'Hors', weight:truckTotalWeight, sources:truckSources, client:ctr?ctr.seller:'Autre'}); 
+                updateCloud(); window.showToast('Camion Validé !'); resetSortie(); showScreen('dashboard'); 
+            };
+
+            if(Math.abs(truckTotalWeight-truckAssignedWeight)>10) {
+                 window.ask('Ecart de poids détecté. Valider quand même ?', processFinalize);
+            } else {
+                processFinalize();
+            }
+        }
+        
+        window.updateProprioSource = function() { const s = db.silos.find(x=>x.id==document.getElementById('propSiloSelect').value); const el = document.getElementById('propSourceSelect'); el.innerHTML=''; if(s&&s.owners) Object.keys(s.owners).forEach(o=>{if(s.owners[o]>0)el.innerHTML+=`<option value="${o}">${o} (${s.owners[o]}kg)</option>`}); }
+        window.gererTransfertProprio = function() { const sid = parseInt(document.getElementById('propSiloSelect').value); const seller = document.getElementById('propSourceSelect').value; const buyer = document.getElementById('propDestSelect').value; const w = parseFloat(document.getElementById('propWeight').value); if(!sid || !seller || !buyer || !w) return window.showToast("Infos incomplètes.", 'error'); const silo = db.silos.find(s=>s.id===sid); if(!silo || (silo.owners[seller] || 0) < w) return window.showToast("Stock insuffisant.", 'error'); silo.owners[seller] -= w; if(silo.owners[seller] <= 0) delete silo.owners[seller]; silo.owners[buyer] = (silo.owners[buyer] || 0) + w; db.logs.push({date: new Date().toLocaleString('fr-FR'), site: '-', client: seller, type: 'Cession', detail: `Cession à ${buyer}`, qty: -w}); updateCloud(); window.showToast("Cession OK"); }
+        window.mouvPhyto = function(t){ const n=document.getElementById('phytoName').value, q=parseFloat(document.getElementById('phytoQty').value), u=document.getElementById('phytoUnit').value; if(n&&q){ const p=db.phytos.find(x=>x.name===n) || {name:n, qty:0, unit:u}; if(!db.phytos.includes(p))db.phytos.push(p); if(t==='in')p.qty+=q; else p.qty-=q; if(p.qty<=0)db.phytos=db.phytos.filter(x=>x!==p); updateCloud(); } }
+        window.addNewSite = function(){ const n=document.getElementById('newSiteNameInput').value; if(n){db.sites.push({id:'site'+Date.now(), name:n}); updateCloud();}}
+        window.addSilo = function(){ const n=document.getElementById('newSiloName').value, c=parseFloat(document.getElementById('newSiloCap').value); if(n&&c){db.silos.push({id:Date.now(), siteId:currentSiteId, name:n, capacity:c, current:0, owners:{}, psValues:{}, pos:{top:50,left:50}}); updateCloud();}};
+        window.addHangar = function(){ const n=document.getElementById('newHangarName').value; if(n){db.hangars.push({id:Date.now(), siteId:currentSiteId, name:n, w:20, h:20, pos:{top:50,left:50}}); updateCloud();}};
+        window.updateItem = function(type, id, f, v){ const i=db[type].find(x=>x.id==id); if(i){ if(f==='capacity')v=parseFloat(v); i[f]=v; updateCloud();} }
+        window.deleteItem = function(type, id){ window.ask('Supprimer cet élément ?', () => { db[type]=db[type].filter(x=>x.id!=id); updateCloud(); }); }
+        
+        window.addData = function(t, v){ 
+            const val=document.getElementById(t==='g'?'addG':'addC').value; 
+            const psVal = parseFloat(document.getElementById('addGPS').value) || 76;
+            if(val){
+                if(t==='g') { db.grains.push({name: val, ps: psVal}); } 
+                else { db.clients.push(val); }
+                updateCloud(); document.getElementById(t==='g'?'addG':'addC').value='';
+                if(t==='g') document.getElementById('addGPS').value='';
+            }
+        };
+
+        window.deleteData = function(t, v){ 
+            window.ask(`Supprimer ${v} ?`, () => {
+                if(t==='g'){ db.grains=db.grains.filter(g=>g.name!==v); } else { db.clients=db.clients.filter(c=>c!==v); } 
+                updateCloud();
+            });
+        }
+        window.resetData = function(){ window.ask('RESET TOTAL DE LA BASE DE DONNÉES ?', () => { set(dbRef, null); location.reload(); }); }
+        window.resetAllSilos = function(){ window.ask('Vider tous les silos ?', () => { db.silos.forEach(s=>{s.current=0; s.owners={};}); updateCloud(); }); }
+        window.closeModal = function(e){ if(e.target.id==='truckModal')document.getElementById('truckModal').style.display='none'; }
+        
+    </script>
+</body>
+</html>
